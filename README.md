@@ -9,9 +9,21 @@ BAT is a PowerShell module used for streamlining helpdesk operations for an Army
 # Features
 <ul>
   <li> Check ATCTS compliance </li>
-  <li> Check if user has an AD account (including visitors accounts) </li>
-  <li> Enable users in AD </li>
+  <li> Check if user has an AD account (including visitor accounts) </li>
+  <li> Enable users in AD (requires administrative privileges) </li>
   <li> Log output for later reference </li>
+</ul>
+
+## A Note on Classification
+The BAT module is unclassified. It has been written to omit any Controlled Unclassified Information (CUI). BAT is non-functional as it exists in this repository. Once combined with its dependencies, it becomes functional and also raises the code's classification level to CUI.
+
+# Dependencies
+The BAT module is dependent on the following:
+<ul>
+  <li> The computer must be a domain-joined computer </li>
+  <li> RSAT must be installed on the computer </li>
+  <li> A unit ATCTS report in CSV format is required to exist on the computer </li>
+  <li> The CSV file located at <strong>BAT\BAT-Library\OrganizationalUnits.csv</strong> must contain the Distinguished Names of the unit's Organizational Units (OUs) in Active Directory </li>
 </ul>
 
 # Installation
