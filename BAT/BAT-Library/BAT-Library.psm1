@@ -276,7 +276,7 @@ function Find-ADUser
     )
     
     ######### Store visitor OU DN in variable #############
-    $OUs = Import-Csv -Path .\OrganizationalUnits.csv
+    $OUs = Import-Csv -Path 'C:\Program Files\WindowsPowerShell\Modules\BAT\BAT-Library\OrganizationalUnits.csv'
 
     foreach ($OU in $OUs)
     {
