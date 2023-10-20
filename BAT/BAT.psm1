@@ -75,15 +75,52 @@ https://atcts.army.mil
         Write-Warning "You have not provided any parameters. Run help BAT -full for help."
     }
     
+    #### Define global rank abbreviation dictionary #######
+    $global:rank_abbreviations = @{
+
+        "Private" = "PVT"
+        "Private 2" = "PV2"
+        "Private First Class" = "PFC"
+        "Specialist" = "SPC"
+        "Sergeant" = "SGT"
+        "Staff Sergeant" = "SSG"
+        "Sergeant First Class" = "SFC"
+        "Master Sergeant" = "MSG"
+        "First Sergeant" = "1SG"
+        "Sergeant Major" = "SGM"
+        "Command Sergeant Major" = "CSM"
+        "Warrant Officer" = "WO1"
+        "Chief Warrant Officer 2" = "CW2"
+        "Chief Warrant Officer 3" = "CW3"
+        "Chief Warrant Officer 4" = "CW4"
+        "Chief Warrant Officer 5" = "CW5"
+        "Second Lieutenant" = "2LT"
+        "First Lieutenant" = "1LT"
+        "Captain" = "CPT"
+        "Major" = "MAJ"
+        "Lieutenant Colonel" = "LTC"
+        "Colonel" = "COL"
+        "Brigadier General" = "BG"
+        "Major General" = "MG"
+        "Lieutenant General" = "LTG"
+        "General" = "GEN"
+        }
+
+    ######## Import ATCTS report #############
+    Import-ATCTS -Path $Path
+
+    ######### Import OrganizationalUnits.csv file #######
+    Import-OUs -Path 'C:\Program files\WindowsPowerShell\Modules\BAT\BAT-Library\OrganizationalUnits.csv'
+    
     if ($CheckATCTS)
     {
         if ($Log)
         {
-            Get-ATCTS -Path $Path -EDIPIs $EDIPIs -Log
+            Show-ATCTS -Path $Path -EDIPIs $EDIPIs -Log
         }
         else
         {
-            Get-ATCTS -Path $Path -EDIPIs $EDIPIs
+            Show-ATCTS -Path $Path -EDIPIs $EDIPIs
         }
     }
     

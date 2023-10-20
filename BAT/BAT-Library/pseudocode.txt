@@ -1,0 +1,23 @@
+for each EDIPI
+	if user exists:
+		Write warning and break
+	else
+	set the following (based on ATCTs report):
+		- GivenName (First name)
+		- Surname (Last name)
+		- Initials (MI)
+		- DisplayName (ex. Noll, Joshua R CPT USA MIL FORSCOM)
+		- Description (OU name)
+		- Title (rank)
+		- Company (Army)
+		- Path (OU Distinguished name)
+		- SamAccountName (ex. joshua.r.noll)
+		- UserPrincipalName (ex. 1471901411121004@mil)
+		- telephoneNumber
+		- EmailAddress 
+		- City (Fort Campbell)
+		- State (KY)
+		- PostalCode (42223)
+	create user with above parameters -enabled $false
+		
+		
