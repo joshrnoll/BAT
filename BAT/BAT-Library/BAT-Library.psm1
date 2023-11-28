@@ -3,12 +3,63 @@
 #####        
 #####        Name: Bastogne Automations Tool (BAT) Functions Library
 #####        Author: Joshua R. Noll
-#####        Version: 1.3
+#####        Version: 2.0
 #####        Usage: help .\BAT
 #####
 ####################################################################
 ####################################################################
 
+
+########################################################################
+############ Function for pseudo-random password generation ############
+########################################################################
+function New-Password
+{
+    param
+    (
+        # The length of the password to be generated
+        [Parameter(Mandatory=$true)]
+        [int32]$length,
+
+        [Parameter(Mandatory=$false)]
+        [switch]$NoSpecial
+    )
+
+    $specchar_array = 33..47
+    $specchar_array += 58..64
+    $specchar_array += 91..96
+    $specchar_array += 123..126
+
+    $password = @()
+
+    for ($i = 0; $i -lt $length; $i++)
+    {            
+        $number = Get-Random -Minimum 48 -Maximum 57
+        $capletter = Get-Random -Minimum 65 -Maximum 90
+        $lowletter = Get-Random -Minimum 97 -Maximum 122
+        $specchar = $specchar_array | Get-Random
+
+        if ($NoSpecial)
+        {
+            $pw_chars = [char]$number,[char]$capletter,[char]$lowletter
+
+            $random_char = $pw_chars | Get-Random
+
+            [string]$password += $random_char
+        }
+
+        else
+        {
+            $pw_chars = [char]$number,[char]$capletter,[char]$lowletter,[char]$specchar
+
+            $random_char = $pw_chars | Get-Random
+
+            [string]$password += $random_char
+        }
+    }
+
+    return [string]$password
+}
 
 ###################################################################
 ############ Function to import ATCTS Compliance Data ############
@@ -165,6 +216,43 @@ function Get-Bn
     return $bn_string
 }
 
+#################################################################
+#### Function to define rank abbreviations from ATCTS report ####
+#################################################################
+
+function Add-RankAbbreviations 
+{
+    #### Define global rank abbreviation dictionary #######
+    $global:rank_abbreviations = @{
+
+        "Private" = "PVT"
+        "Private 2" = "PV2"
+        "Private First Class" = "PFC"
+        "Specialist" = "SPC"
+        "Sergeant" = "SGT"
+        "Staff Sergeant" = "SSG"
+        "Sergeant First Class" = "SFC"
+        "Master Sergeant" = "MSG"
+        "First Sergeant" = "1SG"
+        "Sergeant Major" = "SGM"
+        "Command Sergeant Major" = "CSM"
+        "Warrant Officer" = "WO1"
+        "Chief Warrant Officer 2" = "CW2"
+        "Chief Warrant Officer 3" = "CW3"
+        "Chief Warrant Officer 4" = "CW4"
+        "Chief Warrant Officer 5" = "CW5"
+        "Second Lieutenant" = "2LT"
+        "First Lieutenant" = "1LT"
+        "Captain" = "CPT"
+        "Major" = "MAJ"
+        "Lieutenant Colonel" = "LTC"
+        "Colonel" = "COL"
+        "Brigadier General" = "BG"
+        "Major General" = "MG"
+        "Lieutenant General" = "LTG"
+        "General" = "GEN"
+        }
+}
 
 function Get-ATCTS
 {
@@ -183,6 +271,10 @@ function Get-ATCTS
     ############ Variable to return for users with a clean ATCTS profile ########
     $good = @()
 
+    ###### Set variables for SAAR/Cyber/UA expiration #####
+    $today = Get-Date
+    $expiration = $today.AddYears(-1)
+    
     ############ loop through each EDIPI given by user input ############
     foreach ($EDIPI in $EDIPIs)
     {            
@@ -190,17 +282,106 @@ function Get-ATCTS
         {
             if ($EDIPI -eq $user.EDIPI)
             {
-                ####### Define variables for ATCTS status ##########
+                ####### Define type string variables for ATCTS status ##########
                 [string]$verified_status = $user."Profile Verified"
+                [string]$SAAR = $user."Date SAAR/DD2875 Signed"
                 [string]$cyber = $user."Date Awareness Training Completed" 
                 [string]$ua = $user."Date Most Recent Army IT UA Doc Signed"
 
-                ###### Define variables for a clean ATCTS report ##########
-                $verified_good = $verified_status -eq "Yes"
-                $cyber_good = try { [datetime]::parseexact($cyber, 'dd-MMM-yyyy', $null) -gt $expiration } catch { $null }
-                $ua_good = try { [datetime]::parseexact($ua, 'dd-MMM-yyyy', $null) -gt $expiration } catch { $null }   
+                ######### Define type datetime variables for ATCTS status ######
+                $SAAR_date = try { [datetime]::parseexact($SAAR, 'dd-MMM-yyyy', $null) } catch { $null }
 
-                if ($verified_good -and $cyber_good -and $ua_good)
+                if ($SAAR_date -ne $null)
+                {
+                    $SAAR_date = [datetime]$SAAR_date
+                }
+                
+                $cyber_date = try { [datetime]::parseexact($cyber, 'dd-MMM-yyyy', $null) } catch { $null }
+                
+                if ($cyber_date -ne $null)
+                {
+                    $cyber_date = [datetime]$cyber_date
+                }
+
+                $ua_date = try { [datetime]::parseexact($ua, 'dd-MMM-yyyy', $null) } catch { $null }
+
+                if ($ua_date -ne $null)
+                {
+                    $ua_date = [datetime]$ua_date
+                }
+                
+                ######## Check verified status ########
+                if ($verified_status -ne $null)
+                {
+                    switch ($verified_status)
+                    {
+                        {$verified_status -eq $null} {$verified_good = $false ; break}
+                    
+                        {$verified_status -eq "Yes"} {$verified_good = $true ; break}
+
+                        {$verified_status -eq "No"} {$verified_good = $false ; break}
+
+                        default {$verified_good = $false}
+                    }
+                }
+
+                else
+                {
+                    $verified_good = $false
+                }
+                
+                ####### Check SAAR date ######### 
+                if ($SAAR_date -eq $null)
+                {
+                    $SAAR_good = $false
+                }
+
+                else
+                {
+                    $SAAR_good = $true
+                }
+
+                ######## Check CyberAwareness date #######
+                if ($cyber_date -ne $null)
+                {
+                    switch ($cyber_date.CompareTo($expiration)) 
+                    { 
+                        {$_ -eq $null } {$cyber_good = $false ; break}
+                    
+                        {$_ -le 0} {$cyber_good = $false ; break }
+
+                        {$_ -gt 0} {$cyber_good = $true ; break }
+
+                        default { $cyber_good = $false ; break }
+                    }  
+                }
+
+                else
+                {
+                    $cyber_good = $false
+                }
+                ####### Check IT User Agreement date #######
+                
+                if ($ua_date -ne $null)
+                {
+                    switch ($ua_date.CompareTo($expiration)) 
+                    { 
+                        {$_ -eq $null } {$ua_good = $false ; break}
+                    
+                        {$_ -le 0} {$ua_good = $false ; break }
+
+                        {$_ -gt 0} {$ua_good = $true ; break }
+
+                        default { $ua_good = $false ; break }
+                    }
+                }
+                
+                else
+                {
+                    $ua_good = $false
+                }       
+                
+                if ($verified_good -and $cyber_good -and $ua_good -and $SAAR_good)
                 {
                     $good += $user.EDIPI
                 }
@@ -265,27 +446,122 @@ function Show-ATCTS
             if ($EDIPI -eq $user.EDIPI)
             {
             
+                ######## Set matchfound variable to avoid 'not found' message from being printed #####
+                $matchfound = $true
+                
                 ######## Define variables for personal info ########
                 $name = $user.Name
                 $rank = $user."Rank/Grade"
                 $abbreviatedrank = $rank_abbreviations[$rank] 
                 $email = $user."Enterprise Email Address"
                 $unit = $user."HQ Alignment Subunit"
-            
-                ####### Define variables for ATCTS status ##########
+
+                ####### Define type string variables for ATCTS status ##########
                 [string]$verified_status = $user."Profile Verified"
                 [string]$SAAR = $user."Date SAAR/DD2875 Signed"
                 [string]$cyber = $user."Date Awareness Training Completed" 
                 [string]$ua = $user."Date Most Recent Army IT UA Doc Signed"
 
-                ###### Define variables for a clean ATCTS report ##########
-                $verified_good = $verified_status -eq "Yes"
-                $SAAR_good = try { [datetime]::parseexact($SAAR, 'dd-MMM-yyyy', $null) -gt $expiration } catch { $null }
-                $cyber_good = try { [datetime]::parseexact($cyber, 'dd-MMM-yyyy', $null) -gt $expiration } catch { $null }
-                $ua_good = try { [datetime]::parseexact($ua, 'dd-MMM-yyyy', $null) -gt $expiration } catch { $null }   
+                ######### Define type datetime variables for ATCTS status ######
+                $SAAR_date = try { [datetime]::parseexact($SAAR, 'dd-MMM-yyyy', $null) } catch { $null }
+                $cyber_date = try { [datetime]::parseexact($cyber, 'dd-MMM-yyyy', $null) } catch { $null }
+                $ua_date = try { [datetime]::parseexact($ua, 'dd-MMM-yyyy', $null) } catch { $null }
+                
+                if ($SAAR_date -ne $null)
+                {
+                    $SAAR_date = [datetime]$SAAR_date
+                }
 
-                ######## Set matchfound variable to avoid 'not found' message from being printed #####
-                $matchfound = $true
+                if ($cyber_date -ne $null)
+                {
+                    $cyber_date = [datetime]$cyber_date
+                }
+
+                if ($ua_date -ne $null)
+                {
+                    $ua_date = [datetime]$ua_date
+                }
+
+                ######## Check verified status ########
+                
+                if ($verified_status -ne $null)
+                {
+                    switch ($verified_status)
+                    {
+                        {$verified_status -eq $null} {$verified_good = $false ; break}
+                    
+                        {$verified_status -eq "Yes"} {$verified_good = $true ; break}
+
+                        {$verified_status -eq "No"} {$verified_good = $false ; break}
+
+                        default {$verified_good = $false}
+                    }
+                }
+
+                else
+                {
+                    $verified_good = $false
+                }
+                
+                ####### Check SAAR date ######### 
+                if ($SAAR_date -ne $null)
+                {
+                    switch ($SAAR_date.CompareTo($expiration))
+                    {
+                        {$_ -eq $null } {$SAAR_good = $false ; break}
+                    
+                        {$_ -le 0} {$SAAR_good = $false ; break}
+
+                        {$_ -gt 0} {$SAAR_good = $true ; break}
+
+                        default {$SAAR_good = $false ; break}
+                    }
+                }
+
+                else
+                {
+                    $SAAR_good = $false
+                }
+
+                ######## Check CyberAwareness date #######
+                if ($cyber_date -ne $null)
+                {
+                    switch ($cyber_date.CompareTo($expiration)) 
+                    { 
+                        {$_ -eq $null } {$cyber_good = $false ; break}
+                    
+                        {$_ -le 0} {$cyber_good = $false ; break }
+
+                        {$_ -gt 0} {$cyber_good = $true ; break }
+
+                        default { $cyber_good = $false ; break }
+                    }
+                }
+                
+                else
+                {
+                    $cyber_good = $false
+                }  
+
+                ####### Check IT User Agreement date #######
+                if ($ua_date -ne $null)
+                {
+                    switch ($ua_date.CompareTo($expiration)) 
+                    { 
+                        {$_ -eq $null } {$ua_good = $false ; break}
+                    
+                        {$_ -le 0} {$ua_good = $false ; break }
+
+                        {$_ -gt 0} {$ua_good = $true ; break }
+
+                        default { $ua_good = $false ; break }
+                    }
+                }
+                
+                else
+                {
+                   $ua_good = $false
+                }       
                 
                 ######## Print user's name and unit if found ##########
                 Write-Host `n
@@ -327,7 +603,7 @@ function Show-ATCTS
                 }
                 else
                 {
-                    Write-Host "Profile Verified:" $verified_status -ForegroundColor Red
+                    Write-Host "Profile Verified: NO" -ForegroundColor Red
                 }
 
                 #########################################################
@@ -384,10 +660,6 @@ function Show-ATCTS
                 ########## Print separator block ###########
                 Write-Host "/////////////////////////////////////"
 
-                if ($verified_good -and $SAAR_good -and $cyber_good -and $ua_good)
-                {
-                    $good += $user.EDIPI
-                }
             }
         }
 
@@ -432,6 +704,9 @@ function Find-ADUser
         [switch]$Log
     )
 
+    ###### variable for domain controller to make changes on ########
+    $dc = Get-ADDomainController
+    
     foreach ($OU in $OUs)
     {
         if ($OU.Unit -eq "Visitor")
@@ -449,18 +724,18 @@ function Find-ADUser
     ############ loop through each EDIPI given by user input ############
     foreach ($EDIPI in $EDIPIs)
     {
-        $exists = Get-ADUser -Filter "UserPrincipalName -like '$($EDIPI + "*")'" -Properties *
-        $visitor = Get-ADUser -SearchBase $visitor_ou -Filter "UserPrincipalName -like '$($EDIPI + "*")'" -Properties *        
+        $exists = Get-ADUser -Filter "UserPrincipalName -like '$($EDIPI + "*")'" -Properties * -Server $dc
+        #$visitor = Get-ADUser -SearchBase $visitor_ou -Filter "UserPrincipalName -like '$($EDIPI + "*")'" -Properties * -Server $dc        
         
         ######### Check in visitor OU ############
-        if ($visitor)
+        if ((($exists | Measure-Object).count -eq 1) -and ($exists.Description -like "This account was created by ProV*"))
         {
             Write-Host `n
             Write-Host "DoD visitor account found with EDIPI of $EDIPI" -ForegroundColor Yellow
             Write-Host "/////////////////////////////////////" -ForegroundColor Yellow
-            Write-Host "Name: "$visitor.Name"" -ForegroundColor Yellow
-            Write-Host "Description: "$visitor.Description"" -ForegroundColor Yellow
-            Write-Host "Enabled: "$visitor.Enabled"" -ForegroundColor Yellow
+            Write-Host "Name: "$exists.Name"" -ForegroundColor Yellow
+            Write-Host "Description: "$exists.Description"" -ForegroundColor Yellow
+            Write-Host "Enabled: "$exists.Enabled"" -ForegroundColor Yellow
             Write-Host "/////////////////////////////////////" -ForegroundColor Yellow
         }
 
@@ -526,6 +801,9 @@ function Enable-ADUser
         [switch]$Log
     )
 
+    ###### variable for domain controller to make changes on ########
+    $dc = Get-ADDomainController
+    
     ########## Variable for ATCTS status ############
     $good = Get-ATCTS -EDIPIs $EDIPIs -Path $Path
     
@@ -553,55 +831,53 @@ function Enable-ADUser
         ######## If match is found, enable ############
         if ($matchfound -eq $true)
         {
-            $user = Get-ADUser -Filter "UserPrincipalName -like '$($EDIPI + "*")'" -Properties *
+            $user_info = Add-ADUser -EDIPIs $EDIPI
+            $user = Get-ADUser -Filter "UserPrincipalName -like '$($EDIPI + "*")'" -Properties * -Server $dc 
             
             if ($user)
             {
-                foreach ($account in $user)
-                {   
-                    if ($account.Enabled -eq $true)
-                    {
-                        Write-Host "User "$account.Name" is already enabled" -ForegroundColor Green
-                    }
+                if ($user.Enabled -eq $true)
+                {
+                    Write-Host "User "$user.Name" is already enabled" -ForegroundColor Green
+                }
                     
-                    elseif ($account.Enabled -eq $false)
+                elseif ($user.Enabled -eq $false)
+                {
+                        
+                    try
                     {
+                        $user | Set-ADUser -Enabled $true -Description $user_info.Description -Server $dc -ErrorAction SilentlyContinue
+                    }
                         
-                        try
-                        {
-                            $account | Set-ADUser -Enabled $true -ErrorAction SilentlyContinue
-                        }
-                        
-                        catch
-                        {
-                            Write-Host "User could not be enabled. Check your permissions" -ForegroundColor Red
-                        }
-                        
-                        Start-Sleep 2
+                    catch
+                    {
+                        Write-Host "User could not be enabled. Check your permissions" -ForegroundColor Red
+                    }
 
-                        if ($account.Enabled -eq $true)
-                        {
-                            Write-Host "User "$account.Name" was enabled" -ForegroundColor Green
-                        }                   
+                    $user = Get-ADUser -Filter "UserPrincipalName -like '$($EDIPI + "*")'" -Properties * -Server $dc
+
+                    if ($user.Enabled -eq $true)
+                    {
+                        Write-Host "User "$user.Name" was enabled" -ForegroundColor Green
+                    }                   
                         
-                        else
-                        {
-                            Write-Host "Enabling user "$account.Name"... verify with: bat $EDIPI -CheckAD" -ForegroundColor Yellow
-                        }
-                    }
-                    
                     else
                     {
-                        Write-Host "Something went wrong. Is RSAT installed?." -ForegroundColor Red
+                        Write-Host "Enabling user "$user.Name"... verify with: bat $EDIPI -CheckAD" -ForegroundColor Yellow
                     }
                 }
+                    
+                else
+                {
+                    Write-Host "Something went wrong. Is RSAT installed?." -ForegroundColor Red
+                }
             }
-            
+
             else
             {
-                Write-Host "No user found with EDIPI of '$EDIPI'"
-            }  
-        }
+                Write-Host "User $($user_info.Name) could not be found." -ForegroundColor Red
+            }
+        }  
         
         elseif ($matchfound -eq $false)
         {
@@ -612,6 +888,7 @@ function Enable-ADUser
         {
             Write-Warning "Something went wrong."
         }
+    }
 
         ####### Stop transcript for log if necessary #########
         try 
@@ -623,8 +900,12 @@ function Enable-ADUser
             Write-Host `n
             Write-Host "AD results not logged."
         }
-    }                 
-}
+}                 
+
+
+###############################################################################
+###### Function to collect attributes for Active Directory user creation ######
+###############################################################################
 
 function Add-ADUser
 {
@@ -647,7 +928,7 @@ function Add-ADUser
             {  
             
                 ###### Set firstname ########
-                $firstname_regex = $user.Name | Select-String -Pattern ',\s(\w+)'
+                $firstname_regex = $user.Name | Select-String -Pattern ',\s(.+)'
                
                 try
                 {
@@ -660,7 +941,7 @@ function Add-ADUser
                 }
                 
                 ########### Set lastname ##########
-                $lastname_regex = $user.Name | Select-String -Pattern '^(\w+),'
+                $lastname_regex = $user.Name | Select-String -Pattern '^(.+),'
 
                 try
                 {
@@ -685,26 +966,75 @@ function Add-ADUser
                     $middleinitial = $null
                 }
 
-                ########## Set title (Rank) #########
-                try
+                ####### Status Specific Attrs #######
+                
+                if ($user."Personnel Type" -eq "Military")
                 {
-                    $Title = $rank_abbreviations[$user."Rank/Grade"]
-                }
+                    ########## Set title (Rank) #########
+                    try
+                    {
+                        $Title = $rank_abbreviations[($user."Rank/Grade")]
+                    }
+                    catch
+                    {
+                        $Title = $null
+                    }
+                    ######### Set UserPrincipalName #########
+                    $UserPrincipalName = $user.EDIPI + "121004@mil"
 
-                catch
+                    ########## Set SamAccountName #############
+                    $sAMAccountName = [string]::Format("{0}.mil",$user.EDIPI)
+                }
+                elseif($user."Personnel Type" -eq "Civilian")
                 {
+                    ########## Set title (Rank) #########
+                    $Title = "CIV"
+
+                    ######### Set UserPrincipalName #########
+                    $UserPrincipalName = $user.EDIPI + "121002@mil"
+
+                    ########## Set SamAccountName #############
+                    $sAMAccountName = [string]::Format("{0}.civ",$user.EDIPI)
+                }
+                elseif($user."Personnel Type" -eq "Contractor")
+                {
+                    ########## Set title (Rank) #########
+                    $Title = "CTR"
+
+                    ######### Set UserPrincipalName #########
+                    $UserPrincipalName = $user.EDIPI + "121005@mil"
+
+                    ########## Set SamAccountName #############
+                    $sAMAccountName = [string]::Format("{0}.ctr",$user.EDIPI)
+                }
+                else
+                {
+                    Write-Warning "Unkown personnel type - user EDIPI cannot be determined"
                     $Title = $null
+                    $UserPrincipalName = $null
                 }
 
                 ####### To Do - Make MACOM a variable rather than hard-coded string #########
                 Try
                 {
-                    $DisplayName = ($user.Name + " " + $Title + " " + "USA FORSCOM") 
+                    #$DisplayName = ($user.Name + " " + $Title + " " + "USA FORSCOM")
+                    $DisplayName = [string]::Format("{0} {1} USA FORSCOM",$user.Name,$Title)
+                }
+                
+                catch
+                {
+                    $DisplayName = "Last, First MI RANK USA FORSCOM"
+                }
+
+                ####### Set Account Name #########
+                Try
+                {
+                    $Name = ($user.Name + " " + $Title) 
                 }
 
                 catch
                 {
-                    $DisplayName = "Last, First MI RANK USA FORSCOM"
+                    $Name = "Last, First MI RANK "
                 }
 
                 ######## Set user's OU #########
@@ -734,7 +1064,7 @@ function Add-ADUser
                 }
 
                 ######## Set Description ###########
-                $Description_Regex = $OU | Select-String -Pattern '^[^,]+,[^,]+,([^,]+)'
+                $Description_Regex = $OU | Select-String -Pattern '^[^,]+,[^,]+,OU=([^,]+)'
 
                 try
                 {
@@ -745,43 +1075,9 @@ function Add-ADUser
                 {
                     $Description = "CHANGE TO USER'S OU"
                 }
-                
-                ######### Set SamAccountName ############
-                $SamAccountName_Regex = $user."Enterprise Email Address" | Select-String -Pattern '^(.+)\..+@.+'
-                
-                try
-                {
-                    $SamAccountName = $SamAccountName_Regex.Matches.Groups[1]
-                }
 
-                catch
-                {
-                    $SamAccountName = "first.mi.last"
-                }
-
+                ######## Set email address ########
                 $Email = $user."Enterprise Email Address"
-                
-                ######### Set UserPrincipalName #########
-                if ($user."Personnel Type" -eq "Military")
-                {
-                    $UserPrincipalName = $user.EDIPI + "121004@mil"
-                }
-                
-                elseif ($user."Personnel Type" -eq "Civilian")
-                {
-                    $UserPrincipalName = $user.EDIPI + "121002@mil"
-                }
-
-                elseif ($user."Personnel Type" -eq "Contractor")
-                {
-                    $UserPrincipalName = $user.EDIPI + "121005@mil"
-                }
-
-                else
-                {
-                    Write-Warning "Unkown personnel type - user EDIPI cannot be determined"
-                    $UserPrincipalName = $null
-                }
 
                 ######## Set hard coded attributes ############
                 $Company = "Army"
@@ -793,21 +1089,22 @@ function Add-ADUser
                 ######### Create Object witht the above attributes #########
                 $ad_user_attr = [PSCustomObject]@{
 
-                    FirstName = $firstname
-                    LastName = $lastname
-                    MI = $middleinitial
-                    Title = $Title
-                    DisplayName = $DisplayName
-                    Company = $Company
-                    OU = $OU
-                    Description = $Description
-                    SamAccountName = $SamAccountName
-                    Email = $Email
-                    UserPrincipalName = $UserPrincipalName
-                    City = $city
-                    State = $state
-                    PostalCode = $postalcode
-                    TelephoneNumber = $telephoneNumber
+                    Name = [string]$Name
+                    FirstName = [string]$firstname
+                    LastName = [string]$lastname
+                    MI = [string]$middleinitial
+                    Title = [string]$Title
+                    DisplayName = [string]$DisplayName
+                    Company = [string]$Company
+                    OU = [string]$OU
+                    Description = [string]$Description
+                    SamAccountName = [string]$SamAccountName
+                    Email = [string]$Email
+                    UserPrincipalName = [string]$UserPrincipalName
+                    City = [string]$city
+                    State = [string]$state
+                    PostalCode = [string]$postalcode
+                    TelephoneNumber = [string]$telephoneNumber
                 }
 
                 ######### Add object to array to be returned by function #########
@@ -820,6 +1117,10 @@ function Add-ADUser
 
     return $users
 }
+
+######################################################
+###### Function to create Active Directory user ######
+######################################################
 
 function Create-ADUser
 {
@@ -836,19 +1137,36 @@ function Create-ADUser
 
         #Specifies the path to the log file if -Log is selected.
         [Parameter(Mandatory=$false)]
-        [System.IO.FileInfo] $LogPath = ".\enable.txt",
+        [System.IO.FileInfo] $LogPath = ".\create.txt",
 
         #Specifies whether or not to log output to a .txt file in the working directory. Files are written to the working directory unless otherwise specified in the -LogPath parameter.
         [Parameter(Mandatory=$false)]
         [switch]$Log
     )
 
+    ###### variable for domain controller to make changes on ########
+    $dc = Get-ADDomainController
+    
+    ###### Set default PW ########
+    $default_password = New-Password -length 15
+    
+    ########### log output if selected ##############
+    if ($Log)
+    {
+        Start-Transcript -Path $LogPath
+    }
+    
     ########## Variable for ATCTS status ############
     $good = Get-ATCTS -EDIPIs $EDIPIs -Path $Path
 
     ########## Loop through EDIPIs given by user input #########
     foreach ($EDIPI in $EDIPIs)
     {
+        
+        ####### Clear new user variable and attribute hashtable for account creation #########
+        $new_user = $null
+        $other_attrs = @{}
+        
         ####### Set variable for match found status #########
         $matchfound = $false
 
@@ -861,24 +1179,71 @@ function Create-ADUser
             }
         }
         
+        ###### Define user attributes #######
+        $new_user = Add-ADUser -EDIPIs $EDIPI
+        
         ########## Create user if found to have clean ATCTS report ########
         if ($matchfound -eq $true)
         {   
-            if (Get-ADUser -Filter "UserPrincipalName -like '$($EDIPI + "*")'" -Properties *)
+            if (Get-ADUser -Filter "UserPrincipalName -like '$($EDIPI + "*")'" -Properties * -Server $dc)
             {
-                Write-Warning "User already exists. Skipping..."
+                Write-Warning "User $($new_user.Name) already exists. Skipping..."
+                Write-Host `n
             }
 
             else
             {
-                Add-ADUser -EDIPIs $EDIPI 
+
+                $other_attr_keys = @("DisplayName","GivenName","sn","Initials","Department","Description","Mail","telephoneNumber","l","st","PostalCode","EmployeeID","Company","Title")
+
+                $other_attr_values = @($new_user.DisplayName,$new_user.FirstName,$new_user.LastName,$new_user.MI,"FORSCOM",$new_user.Description,$new_user.Email,$new_user.TelephoneNumber,$new_user.city,$new_user.State,$new_user.PostalCode,[string]$EDIPI,$new_user.Company,$new_user.Title)
+
+                for($i = 0; $i -lt $($other_attr_keys.count); $i++)
+                {
+                    if ($other_attr_values[$i] -ne $null -and $other_attr_values[$i] -ne "")
+                    {
+                        $other_attrs.Add($other_attr_keys[$i],$other_attr_values[$i])
+                    }
+                }
+
+                Write-Host "User $($new_user.Name) is being created. Please wait... :" -ForegroundColor Black -BackgroundColor White
+                Write-Host `n
+
+                if ($new_user -ne $null -and $other_attrs.Count -ne 0)
+                {
+                    New-ADUser -Name $([string]$new_user.Name) -SmartcardLogonRequired $True -Enabled $False -SamAccountName $new_user.SamAccountName -UserPrincipalName $new_user.UserPrincipalName -AccountPassword (ConvertTo-SecureString $default_password -AsPlainText -Force) -Path $new_user.OU -Office $new_user.Description -OtherAttributes $other_attrs -Server $dc
+
+                    Start-Sleep 3
+
+                    if (Get-ADUser -Filter "UserPrincipalName -like '$($EDIPI + "*")'" -Server $dc)
+                    {
+                        Write-Host "USER $($new_user.Name) CREATED" -ForegroundColor Green
+                    }
+
+                    else
+                    {
+                        Write-Host "SOMETHING WENT WRONG CREATING USER $($new_user.Name) -- VERIFY WITH: bat $EDIPI -CheckAD" -ForegroundColor Yellow
+                    }
+                }
+
             }
 
         }
 
         if ($matchfound -eq $false)
         {
-            Write-Warning "User $EDIPI cannot be created due to ATCTS non-compliance"
+            Write-Warning "User $($new_user.Name) cannot be created due to ATCTS non-compliance. Run: bat $EDIPI -CheckATCTS for more info."
         }
+    }
+
+    ####### Stop transcript for log if necessary #########
+    try 
+    {
+        Stop-Transcript -ErrorAction SilentlyContinue
+    } 
+    catch 
+    {
+        Write-Host `n
+        Write-Host "Creation results not logged."
     }
 }

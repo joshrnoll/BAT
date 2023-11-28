@@ -3,7 +3,7 @@
 #####        
 #####        Name: Bastogne Automations Tool (BAT) 
 #####        Author: Joshua R. Noll
-#####        Version: 1.2
+#####        Version: 2.0
 #####        Usage: help .\BAT
 #####
 ####################################################################
@@ -65,46 +65,21 @@ https://atcts.army.mil
         [Parameter(Mandatory=$false)]
         [switch]$Enable,
 
+        #Specifies to enable the users
+        [Parameter(Mandatory=$false)]
+        [switch]$Create,
+
         #Specifies whether or not to log output to a .txt file in the working directory. Files are written to the working directory.
         [Parameter(Mandatory=$false)]
         [switch]$Log
     )
     
-    if (!($CheckAD) -and !($CheckATCTS) -and !($Enable))
+    if (!($CheckAD) -and !($CheckATCTS) -and !($Enable) -and !($Create))
     {
         Write-Warning "You have not provided any parameters. Run help BAT -full for help."
     }
     
-    #### Define global rank abbreviation dictionary #######
-    $global:rank_abbreviations = @{
-
-        "Private" = "PVT"
-        "Private 2" = "PV2"
-        "Private First Class" = "PFC"
-        "Specialist" = "SPC"
-        "Sergeant" = "SGT"
-        "Staff Sergeant" = "SSG"
-        "Sergeant First Class" = "SFC"
-        "Master Sergeant" = "MSG"
-        "First Sergeant" = "1SG"
-        "Sergeant Major" = "SGM"
-        "Command Sergeant Major" = "CSM"
-        "Warrant Officer" = "WO1"
-        "Chief Warrant Officer 2" = "CW2"
-        "Chief Warrant Officer 3" = "CW3"
-        "Chief Warrant Officer 4" = "CW4"
-        "Chief Warrant Officer 5" = "CW5"
-        "Second Lieutenant" = "2LT"
-        "First Lieutenant" = "1LT"
-        "Captain" = "CPT"
-        "Major" = "MAJ"
-        "Lieutenant Colonel" = "LTC"
-        "Colonel" = "COL"
-        "Brigadier General" = "BG"
-        "Major General" = "MG"
-        "Lieutenant General" = "LTG"
-        "General" = "GEN"
-        }
+    Add-RankAbbreviations
 
     ######## Import ATCTS report #############
     Import-ATCTS -Path $Path
@@ -146,6 +121,19 @@ https://atcts.army.mil
         else
         {
             Enable-ADUser -Path $Path -EDIPIs $EDIPIs
+        }
+    }
+    
+    if ($Create)
+    {
+        if ($Log)
+        {
+            Create-ADUser -Path $Path -EDIPIs $EDIPIs -Log
+        }
+
+        else
+        {
+            Create-ADUser -Path $Path -EDIPIs $EDIPIs
         }
     } 
 }
