@@ -3,7 +3,7 @@
 #####        
 #####        Name: Bastogne Automations Tool (BAT) 
 #####        Author: Joshua R. Noll
-#####        Version: 1.2
+#####        Version: 2.0
 #####        Usage: help .\BAT
 #####
 ####################################################################
@@ -65,25 +65,37 @@ https://atcts.army.mil
         [Parameter(Mandatory=$false)]
         [switch]$Enable,
 
+        #Specifies to enable the users
+        [Parameter(Mandatory=$false)]
+        [switch]$Create,
+
         #Specifies whether or not to log output to a .txt file in the working directory. Files are written to the working directory.
         [Parameter(Mandatory=$false)]
         [switch]$Log
     )
     
-    if (!($CheckAD) -and !($CheckATCTS) -and !($Enable))
+    if (!($CheckAD) -and !($CheckATCTS) -and !($Enable) -and !($Create))
     {
         Write-Warning "You have not provided any parameters. Run help BAT -full for help."
     }
+    
+    Add-RankAbbreviations
+
+    ######## Import ATCTS report #############
+    Import-ATCTS -Path $Path
+
+    ######### Import OrganizationalUnits.csv file #######
+    Import-OUs -Path 'C:\Program files\WindowsPowerShell\Modules\BAT\BAT-Library\OrganizationalUnits.csv'
     
     if ($CheckATCTS)
     {
         if ($Log)
         {
-            Get-ATCTS -Path $Path -EDIPIs $EDIPIs -Log
+            Show-ATCTS -Path $Path -EDIPIs $EDIPIs -Log
         }
         else
         {
-            Get-ATCTS -Path $Path -EDIPIs $EDIPIs
+            Show-ATCTS -Path $Path -EDIPIs $EDIPIs
         }
     }
     
@@ -109,6 +121,19 @@ https://atcts.army.mil
         else
         {
             Enable-ADUser -Path $Path -EDIPIs $EDIPIs
+        }
+    }
+    
+    if ($Create)
+    {
+        if ($Log)
+        {
+            Create-ADUser -Path $Path -EDIPIs $EDIPIs -Log
+        }
+
+        else
+        {
+            Create-ADUser -Path $Path -EDIPIs $EDIPIs
         }
     } 
 }
