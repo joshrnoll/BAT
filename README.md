@@ -72,7 +72,7 @@ Before using the `-Create` feature, you must configure your <strong>Organization
 <br>
 You can find your OU DNs by opening <strong>Active Directory Users and Computers (ADUC)</strong>, right clicking on the OU where your users are, and selecting <em>properties</em>. Then click on <em>Attribute Editor</em> and find the <em>Distinguished Name</em> field.
 
-<img src="./ADUC_Example.png" width="480" height="337">
+<img src="./ADUC_Example.png" width="360" height="253">
 
 
 # Configuration - (Scripted)
